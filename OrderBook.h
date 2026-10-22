@@ -31,4 +31,7 @@ public:
 
   // Imprime o estado atual do livro
   void PrintOrderBook() const;
+
+	//Retorna a melhor ordem do lado oposto. Retorna nullptr se não houver ordens no lado oposto/livro vazio;
+	std::shared_ptr<Order> GetBestOppositeOrder(Side side) const;
 };
