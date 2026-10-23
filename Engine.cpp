@@ -1,5 +1,6 @@
 #include "Engine.h"
 #include <algorithm>
+#include <cstdint>
 #include <string>
 
 const OrderBook &Engine::GetBook() const { return book; }
@@ -79,50 +80,93 @@ void Engine::MatchOrder(std::shared_ptr<Order> order) {
     }
   }
 }
-  void Engine::CancelOrder(const std::string &id) {
-    // Verifica se a ordem existe no livro
-    auto order = book.GetOrder(id);
-    if (!order) {
-      // Se a ordem não existe / já foi cancelada / Id é inválido apenas ignora
-      return;
-    }
+void Engine::CancelOrder(const std::string &id) {
+  // Verifica se a ordem existe no livro
+  auto order = book.GetOrder(id);
+  if (!order) {
+    // Se a ordem não existe / já foi cancelada / Id é inválido apenas ignora
+    return;
+  }
 
-    // Remove a ordem em O(1)
+  // Remove a ordem em O(1)
+  book.RemoveOrder(id);
+
+  std::cout << "Order cancelled\n";
+}
+
+void Engine::ModifyOrder(const std::string &id, int64_t new_price,
+                         int new_qty) {
+
+  auto order = book.GetOrder(id);
+  if (!order) {
+    return;
+  }
+
+  // Regra 1: A ordem perde prioridade na fila caso tenha seu preço alterado
+  // ou se a quantidade de ações foi aumentada
+  if (order->price != new_price || order->qty < new_qty) {
+    // remove a ordem do livro
     book.RemoveOrder(id);
 
-    std::cout << "Order cancelled\n";
-  }
+    // atualiza seus parametros
+    order->price = new_price;
+    order->qty = new_qty;
 
-  void Engine::ModifyOrder(const std::string &id, int64_t new_price,
-                           int new_qty) {
+    // tenta cruzar a ordem
+    MatchOrder(order);
 
-    auto order = book.GetOrder(id);
-    if (!order) {
-      return;
+    // Se não for totalmente liquidada é adicionada de volta
+    if (order->qty > 0) {
+      book.AddOrder(order);
     }
 
-    // Regra 1: A ordem perde prioridade na fila caso tenha seu preço alterado
-    // ou se a quantidade de ações foi aumentada
-    if (order->price != new_price || order->qty < new_qty) {
-      // remove a ordem do livro
-      book.RemoveOrder(id);
+  }
+  // Regra 2: Atualiza a ordem e mantém a prioridade caso apenas a quantidade
+  // de ações foi diminuida
+  else if (order->qty > new_qty) {
+    order->qty = new_qty;
+  }
+}
 
-      // atualiza seus parametros
-      order->price = new_price;
-      order->qty = new_qty;
+void Engine::UpdatePeggedOrders() {
+  int64_t current_top_bid = 0;
+  int64_t current_top_ask = 0;
+  if (book.HasBids()) {
+    current_top_bid = book.GetBestBidPrice();
+  }
+  if (book.HasAsks()) {
+    current_top_ask = book.GetBestAskPrice();
+  }
 
-      // tenta cruzar a ordem
-      MatchOrder(order);
+  if (current_top_bid != last_top_bid && current_top_bid != 0) {
+    last_top_bid = current_top_bid;
 
-      // Se não for totalmente liquidada é adicionada de volta
-      if (order->qty > 0) {
+    for (auto const &[id, order] : peggedTracker.GetPeggedBids()) {
+      if (order->price != current_top_bid) {
+
+        if (order->price != 0) {
+          book.RemoveOrder(order->orderId);
+        }
+
+        order->price = current_top_bid;
         book.AddOrder(order);
       }
-
-    }
-    // Regra 2: Atualiza a ordem e mantém a prioridade caso apenas a quantidade
-    // de ações foi diminuida
-    else if (order->qty > new_qty) {
-      order->qty = new_qty;
     }
   }
+
+  if (current_top_ask != last_top_ask && current_top_ask != 0) {
+    last_top_ask = current_top_ask;
+
+    for (auto const &[id, order] : peggedTracker.GetPeggedAsks()) {
+      if (order->price != current_top_ask) {
+
+        if (order->price != 0) {
+          book.RemoveOrder(order->orderId);
+        }
+
+        order->price = current_top_ask;
+        book.AddOrder(order);
+      }
+    }
+  }
+}
