@@ -96,3 +96,31 @@ void OrderBook::PrintOrderBook() const {
   }
   std::cout << "\n";
 }
+
+std::shared_ptr<Order> OrderBook::GetBestOppositeOrder(Side side) const {
+  if (side == Side::BUY) {
+    // retorna ponteiro nullo caso não haja ordens de venda
+    if (asks.empty())
+      return nullptr;
+    // Retorna o ponteiro da primeira ordem do menor preço de venda
+    return asks.begin()->second.front();
+
+  } else {
+    if (bids.empty())
+      return nullptr;
+    return bids.begin()->second.front();
+  }
+}
+
+std::shared_ptr<Order> OrderBook::GetOrder(std::string id) const {
+  // procura a ordem na tabela segundo o id
+  auto itr = order_indexer.find(id);
+
+  // Verifica se foi encontrada ordem, se sim retorna o ponteiro da ordem
+  if (itr != order_indexer.end()) {
+    return *(itr->second);
+  }
+
+  // Retorna ponteiro nulo caso a ordem não esteja na tabela
+  return nullptr;
+}
