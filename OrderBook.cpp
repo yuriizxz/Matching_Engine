@@ -111,3 +111,16 @@ std::shared_ptr<Order> OrderBook::GetBestOppositeOrder(Side side) const {
     return bids.begin()->second.front();
   }
 }
+
+std::shared_ptr<Order> OrderBook::GetOrder(std::string id) const {
+  // procura a ordem na tabela segundo o id
+  auto itr = order_indexer.find(id);
+
+  // Verifica se foi encontrada ordem, se sim retorna o ponteiro da ordem
+  if (itr != order_indexer.end()) {
+    return *(itr->second);
+  }
+
+  // Retorna ponteiro nulo caso a ordem não esteja na tabela
+  return nullptr;
+}

@@ -21,4 +21,11 @@ public:
 
   // Expõe o livro em vigor
   const OrderBook &GetBook() const;
+
+  // Cancela uma ordem
+  void CancelOrder(const std::string &id);
+
+  // Modifica uma ordem
+  void ModifyOrder(const std::string& id, int64_t new_price, int new_qty);
+
 };
