@@ -1,3 +1,4 @@
+#pragma once
 #include "Order.h"
 #include <list>
 #include <map>
@@ -38,4 +39,12 @@ public:
 
   // Retorna a ordem pelo id passado no parâmetro
   std::shared_ptr<Order> GetOrder(std::string id) const;
+
+  // Retorna true se tiver ordens false caso contrario
+  bool HasAsks() const { return !asks.empty(); }
+  bool HasBids() const { return !bids.empty(); }
+
+  // Retorna os melhores preços de bids e asks
+  int64_t GetBestBidPrice() const { return bids.begin()->first; }
+  int64_t GetBestAskPrice() const { return asks.begin()->first; }
 };
