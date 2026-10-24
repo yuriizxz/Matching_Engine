@@ -12,7 +12,7 @@ private:
 
 public:
   // Adiciona a pegged order a sua respectiva tabela
-  void AddPeggedOffer(std::shared_ptr<Order> order) {
+  void AddPeggedOrder(std::shared_ptr<Order> order) {
     if (order->side == Side::BUY) {
       pegBids[order->orderId] = order;
     } else {
@@ -20,7 +20,7 @@ public:
     }
   }
 
-  void RemovePeggedOffer(const std::string &id) {
+  void RemovePeggedOrder(const std::string &id) {
     // Remove em O(1) a order da respectiva tabela
     pegBids.erase(id);
     pegAsks.erase(id);
