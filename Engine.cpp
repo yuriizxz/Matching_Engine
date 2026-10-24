@@ -6,6 +6,8 @@
 const OrderBook &Engine::GetBook() const { return book; }
 
 std::string Engine::GenerateOrderId() {
+  // gera um id incrementalmente para novas ordens no modelo
+  // "identificador_"<id>
   return "identificador_" + std::to_string(next_order_id++);
 }
 
@@ -42,8 +44,11 @@ void Engine::ProcessMarketOrder(Side side, int qty) {
 }
 
 void Engine::MatchOrder(std::shared_ptr<Order> order) {
+  // Loop de match, enquanto a ordem não for totalmente liquidada dada as
+  // condições de trade, tenta liquidar;
   while (order->qty > 0) {
 
+    // Verifica se a side tem ordens no livro.
     std::shared_ptr<Order> best_opposite_order =
         book.GetBestOppositeOrder(order->side);
     if (best_opposite_order == nullptr) {
@@ -129,6 +134,9 @@ void Engine::ModifyOrder(const std::string &id, int64_t new_price,
 }
 
 void Engine::UpdatePeggedOrders() {
+
+  // Armazena os melhores preços das filas após verificar se as filas não estão
+  // vazias;
   int64_t current_top_bid = 0;
   int64_t current_top_ask = 0;
   if (book.HasBids()) {
@@ -138,9 +146,15 @@ void Engine::UpdatePeggedOrders() {
     current_top_ask = book.GetBestAskPrice();
   }
 
+  // Compara o melhor preço atual com o anterior desde que não seja zero
   if (current_top_bid != last_top_bid && current_top_bid != 0) {
+
+    // Atualiza o preço anterior
     last_top_bid = current_top_bid;
 
+    // Itera sobre a respectiva tabela hash ( bid ou ask ) para remover a ordem
+    // do livro, atualizar seus preços e adicionar a ordem atualizada novamente
+    // ao livro, fazendo com que perca prioridade na fila
     for (auto const &[id, order] : peggedTracker.GetPeggedBids()) {
       if (order->price != current_top_bid) {
 
@@ -153,7 +167,7 @@ void Engine::UpdatePeggedOrders() {
       }
     }
   }
-
+  // faz o mesmo para as asks;
   if (current_top_ask != last_top_ask && current_top_ask != 0) {
     last_top_ask = current_top_ask;
 
@@ -169,4 +183,22 @@ void Engine::UpdatePeggedOrders() {
       }
     }
   }
+}
+
+void Engine::ProcessPeggedOrder(Side side, int qty) {
+  std::string id = GenerateOrderId();
+
+  // A ordem pegged nasce com um preço temporário de 0
+  auto order = std::make_shared<Order>(
+      id, side == Side::BUY ? OrderType::PEG_BID : OrderType::PEG_OFFER, side,
+      0, qty);
+
+  std::cout << "Order created: peg "
+            << (side == Side::BUY ? "bid buy " : "offer sell ") << qty << " "
+            << id << "\n";
+
+  peggedTracker.AddPeggedOrder(order);
+
+  // O preço será ajustado imediatamente pela rotina de atualização
+  UpdatePeggedOrders();
 }
