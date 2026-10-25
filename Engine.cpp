@@ -12,6 +12,12 @@ std::string Engine::GenerateOrderId() {
 }
 
 void Engine::ProcessLimitOrder(Side side, int64_t price, int qty) {
+  // Verifica se a quantidade e preco passados nos parametros são válidos, caso
+  // não sejam, não processa a ordem
+  if (qty <= 0 || price <= 0) {
+    std::cout << "Erro: Quantidade e preco devem ser maiores que zero.\n";
+    return;
+  }
   // cria um indentificador para o ordem
   std::string id = GenerateOrderId();
   // Cria a ordem com os parâmetros passados
@@ -34,6 +40,13 @@ void Engine::ProcessLimitOrder(Side side, int64_t price, int qty) {
 }
 
 void Engine::ProcessMarketOrder(Side side, int qty) {
+
+  // Verifica se a quantidade é maior que zero
+  if (qty <= 0) {
+    std::cout << "Erro: Quantidade deve ser maior que zero.\n";
+    return;
+  }
+
   // Cria um identificador para log
   std::string id = "market_" + std::to_string(next_order_id++);
 
@@ -97,6 +110,7 @@ void Engine::CancelOrder(const std::string &id) {
   // Verifica se a ordem existe no livro
   auto order = book.GetOrder(id);
   if (!order) {
+    std::cout << "Erro: Ordem " << id << " nao encontrada ou ja liquidada.\n";
     // Se a ordem não existe / já foi cancelada / Id é inválido apenas ignora
     return;
   }
@@ -112,6 +126,11 @@ void Engine::CancelOrder(const std::string &id) {
 
 void Engine::ModifyOrder(const std::string &id, int64_t new_price,
                          int new_qty) {
+  if (new_qty <= 0 || new_price <= 0) {
+    std::cout
+        << "Erro: Novos valores de preco e quantidade devem maiores que zero";
+    return;
+  }
 
   auto order = book.GetOrder(id);
   if (!order) {
@@ -200,8 +219,12 @@ void Engine::UpdatePeggedOrders() {
 }
 
 void Engine::ProcessPeggedOrder(Side side, int qty) {
+
   std::string id = GenerateOrderId();
 
+  if (qty <= 0) {
+    return;
+  }
   // Descobre o preço atual para a ordem nascer junto com o mercado
   int64_t initial_price = 0;
   if (side == Side::BUY && book.HasBids()) {
