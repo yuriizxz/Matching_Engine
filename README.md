@@ -14,7 +14,20 @@ Motor de correspondência de ordens (Matching Engine) desenvolvido em C++17. O s
 
 ## Arquitetura e Estruturas de Dados
 
-O projeto foi estruturado com foco em eficiência assintótica e separação de responsabilidades. Abaixo estão os princípios técnicos adotados:
+O sistema foi estruturado com base em princípios de separação de responsabilidades, isolando a interface, as regras de negócio e as estruturas de dados. 
+
+
+### Componentes do Sistema
+
+* **`main.cpp`**: Ponto de entrada da aplicação. Instancia a *Engine* central e transfere o controle do fluxo para o *CLI*.
+* **`Types.h`**: Centraliza os enumeradores (`Side`, `OrderType`) e estruturas de dados leves (`Trade`) compartilhados por todo o sistema.
+* **`Order.h`**: Define a entidade base `Order`, que armazena o estado imutável e mutável de uma oferta (ID, preço, quantidade, lado, tipo).
+* **`OrderBook.h` / `.cpp`**: Camada de dados do livro de ofertas. Abstrai a lógica de manipulação das filas de preço, garantindo a adição, remoção e consulta eficiente, mantendo o encapsulamento das estruturas internas (`std::map`, `std::list`).
+* **`PeggedTracker.h` / `.cpp`**: Módulo isolado de rastreamento. Observa as mudanças no topo do livro (*Top of Book*) e contém a lógica para atualizar as Pegged Orders, evitando poluir o motor principal com esta complexidade específica.
+* **`Engine.h` / `.cpp`**: O cérebro do sistema (*Core Logic*). Recebe solicitações, executa validações, realiza o algoritmo de cruzamento (Matching) entre compradores e vendedores e orquestra a comunicação entre o `OrderBook` e o `PeggedTracker`.
+* **`CLI.h` / `.cpp`**: Camada de Interface (View/Input). Lida exclusivamente com operações de leitura da entrada padrão (`std::cin`), conversão de tipos de dados (`double` para `int64_t`) e tratamento de comandos mal formatados, blindando o restante da aplicação.
+* **`CMakeLists.txt`**: Receita de configuração para a geração automatizada da build.
+
 
 ### 1. Representação de Preços (`int64_t`)
 O sistema evita o uso de tipos de ponto flutuante (`double` ou `float`) na lógica central para prevenir problemas de precisão e arredondamento binário. Os preços inseridos no terminal são convertidos para `int64_t` (multiplicados por 100 com ajuste de truncamento), garantindo que toda a matemática de cruzamento seja realizada em valores inteiros (centavos).
