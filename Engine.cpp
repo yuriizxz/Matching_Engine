@@ -12,6 +12,12 @@ std::string Engine::GenerateOrderId() {
 }
 
 void Engine::ProcessLimitOrder(Side side, int64_t price, int qty) {
+  // Verifica se a quantidade e preco passados nos parametros são válidos, caso
+  // não sejam, não processa a ordem
+  if (qty <= 0 || price <= 0) {
+    std::cout << "Erro: Quantidade e preco devem ser maiores que zero.\n";
+    return;
+  }
   // cria um indentificador para o ordem
   std::string id = GenerateOrderId();
   // Cria a ordem com os parâmetros passados
@@ -19,8 +25,8 @@ void Engine::ProcessLimitOrder(Side side, int64_t price, int qty) {
       std::make_shared<Order>(id, OrderType::LIMIT, side, price, qty);
 
   // Imprime que a ordem foi criada
-  std::cout << "Order created: " << (side == Side::BUY ? "buy" : "sell")
-            << " @ " << (price / 100.0) << " " << id << "\n";
+  std::cout << "Order created: " << (side == Side::BUY ? "buy " : "sell ")
+            << qty << " @ " << (price / 100.0) << " " << id << "\n";
 
   // Faz o cruzamento da ordem com as que estão no book
   MatchOrder(new_order);
@@ -29,9 +35,18 @@ void Engine::ProcessLimitOrder(Side side, int64_t price, int qty) {
   if (new_order->qty > 0) {
     book.AddOrder(new_order);
   }
+  // Aciona o gatilho para atualizar as ordens pegged
+  UpdatePeggedOrders();
 }
 
 void Engine::ProcessMarketOrder(Side side, int qty) {
+
+  // Verifica se a quantidade é maior que zero
+  if (qty <= 0) {
+    std::cout << "Erro: Quantidade deve ser maior que zero.\n";
+    return;
+  }
+
   // Cria um identificador para log
   std::string id = "market_" + std::to_string(next_order_id++);
 
@@ -41,6 +56,9 @@ void Engine::ProcessMarketOrder(Side side, int qty) {
 
   // Faz o cruzamento da ordem
   MatchOrder(new_order);
+
+  // Aciona o gatilho para atualizar as ordens pegged
+  UpdatePeggedOrders();
 }
 
 void Engine::MatchOrder(std::shared_ptr<Order> order) {
@@ -84,11 +102,15 @@ void Engine::MatchOrder(std::shared_ptr<Order> order) {
       book.RemoveOrder(best_opposite_order->orderId);
     }
   }
+
+  // Aciona o gatilho para atualizar as ordens pegged
+  UpdatePeggedOrders();
 }
 void Engine::CancelOrder(const std::string &id) {
   // Verifica se a ordem existe no livro
   auto order = book.GetOrder(id);
   if (!order) {
+    std::cout << "Erro: Ordem " << id << " nao encontrada ou ja liquidada.\n";
     // Se a ordem não existe / já foi cancelada / Id é inválido apenas ignora
     return;
   }
@@ -97,10 +119,18 @@ void Engine::CancelOrder(const std::string &id) {
   book.RemoveOrder(id);
 
   std::cout << "Order cancelled\n";
+
+  // Aciona o gatilho para atualizar as ordens pegged
+  UpdatePeggedOrders();
 }
 
 void Engine::ModifyOrder(const std::string &id, int64_t new_price,
                          int new_qty) {
+  if (new_qty <= 0 || new_price <= 0) {
+    std::cout
+        << "Erro: Novos valores de preco e quantidade devem maiores que zero";
+    return;
+  }
 
   auto order = book.GetOrder(id);
   if (!order) {
@@ -131,6 +161,9 @@ void Engine::ModifyOrder(const std::string &id, int64_t new_price,
   else if (order->qty > new_qty) {
     order->qty = new_qty;
   }
+
+  // Aciona o gatilho para atualizar as ordens pegged
+  UpdatePeggedOrders();
 }
 
 void Engine::UpdatePeggedOrders() {
@@ -186,12 +219,23 @@ void Engine::UpdatePeggedOrders() {
 }
 
 void Engine::ProcessPeggedOrder(Side side, int qty) {
+
   std::string id = GenerateOrderId();
 
-  // A ordem pegged nasce com um preço temporário de 0
+  if (qty <= 0) {
+    return;
+  }
+  // Descobre o preço atual para a ordem nascer junto com o mercado
+  int64_t initial_price = 0;
+  if (side == Side::BUY && book.HasBids()) {
+    initial_price = book.GetBestBidPrice();
+  } else if (side == Side::SELL && book.HasAsks()) {
+    initial_price = book.GetBestAskPrice();
+  }
+
   auto order = std::make_shared<Order>(
       id, side == Side::BUY ? OrderType::PEG_BID : OrderType::PEG_OFFER, side,
-      0, qty);
+      initial_price, qty);
 
   std::cout << "Order created: peg "
             << (side == Side::BUY ? "bid buy " : "offer sell ") << qty << " "
@@ -199,6 +243,10 @@ void Engine::ProcessPeggedOrder(Side side, int qty) {
 
   peggedTracker.AddPeggedOrder(order);
 
-  // O preço será ajustado imediatamente pela rotina de atualização
+  if (initial_price != 0) {
+    book.AddOrder(order);
+  }
+
+  // Aciona o gatilho para atualizar as ordens pegged
   UpdatePeggedOrders();
 }

@@ -92,7 +92,7 @@ void OrderBook::PrintOrderBook() const {
   for (size_t i = 0; i < max_lines; i++) {
     std::string left_side = (i < buy_lines.size()) ? buy_lines[i] : "";
     std::string right_side = (i < sell_lines.size()) ? sell_lines[i] : "";
-    std::cout << left_side << std::setw(21) << " |  " << right_side << "\n";
+    std::cout << left_side << std::setw(15) << " |  " << right_side << "\n";
   }
   std::cout << "\n";
 }
